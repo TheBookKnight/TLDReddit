@@ -11,6 +11,8 @@ jobs:
   backend:
     name: Backend (Python)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     defaults:
       run:
@@ -52,6 +54,8 @@ jobs:
   frontend:
     name: Frontend (Node.js)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     defaults:
       run:

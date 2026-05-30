@@ -137,7 +137,7 @@ make test-frontend
 make test-coverage
 ```
 
-### Backend coverage target: 80%
+### Backend coverage target: 70%
 ### Frontend: 30 tests across Dashboard, Settings, Chat, Trends, SentimentBadge
 
 ---
@@ -223,8 +223,8 @@ See [`.env.example`](.env.example) for the full list. Key variables:
 | `REDDIT_USER_AGENT` | `TLDReddit/1.0` | Reddit API user agent |
 | `DATABASE_URL` | `sqlite+aiosqlite:///./tldreddit.db` | Database URL |
 | `INGESTION_HOUR` | `6` | UTC hour for daily job |
-| `HOT_POSTS_LIMIT` | `10` | Posts per subreddit per run |
-| `TOP_COMMENTS_LIMIT` | `20` | Comments per post |
+| `INGESTION_TOP_POSTS` | `10` | Posts per subreddit per run |
+| `INGESTION_TOP_COMMENTS` | `20` | Comments per post |
 
 ---
 
