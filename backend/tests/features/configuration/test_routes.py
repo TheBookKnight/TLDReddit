@@ -19,7 +19,7 @@ async def test_create_subreddit(client):
     )
     assert response.status_code == 201
     data = response.json()
-    assert data["name"] == "Python"
+    assert data["name"] == "python"
     assert data["display_name"] == "r/Python"
     assert data["is_active"] is True
 
@@ -29,6 +29,17 @@ async def test_create_duplicate_subreddit(client):
     """Test that creating a duplicate subreddit returns 409."""
     await client.post("/api/v1/subreddits/", json={"name": "duplicatetest"})
     response = await client.post("/api/v1/subreddits/", json={"name": "duplicatetest"})
+    assert response.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_create_duplicate_subreddit_case_insensitive(client):
+    """Test that duplicate subreddit names are rejected regardless of case or prefix."""
+    first = await client.post("/api/v1/subreddits/", json={"name": "Catholicism"})
+    assert first.status_code == 201
+    assert first.json()["name"] == "catholicism"
+
+    response = await client.post("/api/v1/subreddits/", json={"name": "r/Catholicism"})
     assert response.status_code == 409
 
 

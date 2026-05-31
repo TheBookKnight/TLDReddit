@@ -1,7 +1,7 @@
 """Subreddit configuration schemas."""
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class SubredditCreate(BaseModel):
@@ -25,6 +25,15 @@ class SubredditCreate(BaseModel):
         description="Short note describing why this subreddit is monitored.",
         examples=["Broad retail investor discussion and market sentiment."],
     )
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        """Store subreddit names in a canonical lowercase form without an r/ prefix."""
+        normalized = value.strip()
+        if normalized.lower().startswith("r/"):
+            normalized = normalized[2:]
+        return normalized.lower()
 
     model_config = {
         "json_schema_extra": {
