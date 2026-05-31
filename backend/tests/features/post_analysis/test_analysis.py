@@ -20,7 +20,13 @@ class MockLLMProvider(LLMProvider):
     def __init__(self, response: str) -> None:
         self._response = response
 
-    async def complete(self, system_prompt: str, user_content: str) -> str:
+    async def complete(
+        self,
+        system_prompt: str,
+        user_content: str,
+        *,
+        json_output: bool = False,
+    ) -> str:
         return self._response
 
 
@@ -154,12 +160,20 @@ async def test_llm_provider_limits_comments():
     """Test that only the first 20 comments are sent to the LLM."""
     responses = []
 
-    async def capture_complete(self, system: str, user_content: str) -> str:
+    async def capture_complete(
+        self,
+        system: str,
+        user_content: str,
+        *,
+        json_output: bool = False,
+    ) -> str:
         responses.append(user_content)
         return json.dumps(VALID_POST_ANALYSIS)
 
     provider = MockLLMProvider(json.dumps(VALID_POST_ANALYSIS))
-    provider.complete = lambda s, u: capture_complete(provider, s, u)  # type: ignore
+    provider.complete = lambda s, u, *, json_output=False: capture_complete(  # type: ignore
+        provider, s, u, json_output=json_output
+    )
 
     comments = [f"Comment {i}" for i in range(25)]
     payload = PostPayload(
@@ -198,6 +212,7 @@ async def test_openai_provider_omits_temperature_for_gpt5_models():
     kwargs = create_mock.await_args.kwargs
     assert kwargs["model"] == "gpt-5-mini"
     assert "temperature" not in kwargs
+    assert "response_format" not in kwargs
 
 
 @pytest.mark.asyncio
@@ -224,3 +239,28 @@ async def test_openai_provider_keeps_temperature_for_non_gpt5_models():
 
     kwargs = create_mock.await_args.kwargs
     assert kwargs["temperature"] == 0.2
+
+
+@pytest.mark.asyncio
+async def test_openai_provider_adds_json_response_format_when_requested():
+    """Test structured analysis requests still enforce JSON output."""
+    provider = OpenAIProvider(
+        settings=Settings(
+            openai_api_key="test",
+            openai_model="gpt-5-mini",
+            database_url="sqlite+aiosqlite:///:memory:",
+        )
+    )
+    create_mock = AsyncMock(
+        return_value=SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content='{"ok": true}'))]
+        )
+    )
+    provider._client = SimpleNamespace(
+        chat=SimpleNamespace(completions=SimpleNamespace(create=create_mock))
+    )
+
+    await provider.complete("system", "user", json_output=True)
+
+    kwargs = create_mock.await_args.kwargs
+    assert kwargs["response_format"] == {"type": "json_object"}

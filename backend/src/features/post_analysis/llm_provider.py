@@ -47,7 +47,13 @@ class LLMProvider(ABC):
     """Abstract LLM provider interface."""
 
     @abstractmethod
-    async def complete(self, system_prompt: str, user_content: str) -> str:
+    async def complete(
+        self,
+        system_prompt: str,
+        user_content: str,
+        *,
+        json_output: bool = False,
+    ) -> str:
         """Generate a completion from the LLM."""
 
     async def analyze_post(self, payload: PostPayload) -> PostAnalysisResult:
@@ -59,7 +65,7 @@ class LLMProvider(ABC):
             + "\n---\n".join(payload.top_comments[:20])
         )
 
-        raw = await self.complete(POST_ANALYSIS_SYSTEM, user_content)
+        raw = await self.complete(POST_ANALYSIS_SYSTEM, user_content, json_output=True)
         return self._parse_post_analysis(raw)
 
     async def analyze_subreddit(
@@ -73,7 +79,7 @@ class LLMProvider(ABC):
             + "\n\n---\n\n".join(post_summaries)
         )
 
-        raw = await self.complete(SUBREDDIT_ANALYSIS_SYSTEM, user_content)
+        raw = await self.complete(SUBREDDIT_ANALYSIS_SYSTEM, user_content, json_output=True)
         return self._parse_subreddit_analysis(raw, subreddit, analysis_date)
 
     def _parse_post_analysis(self, raw: str) -> PostAnalysisResult:
