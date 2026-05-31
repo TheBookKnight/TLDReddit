@@ -86,6 +86,8 @@ cp .env.example .env
 # Edit .env — set OPENAI_API_KEY at minimum
 ```
 
+The backend can read configuration from either the repo-root `.env` or `backend/.env`. The repo-root `.env` is the recommended default for local development.
+
 ### 2. Install dependencies
 
 ```bash
