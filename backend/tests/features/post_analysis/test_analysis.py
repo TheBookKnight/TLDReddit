@@ -1,13 +1,17 @@
 """Tests for LLM analysis schemas and provider."""
 import json
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from src.features.post_analysis.llm_provider import LLMProvider
+from src.features.post_analysis.openai_provider import OpenAIProvider
 from src.features.post_analysis.schemas import (
     PostAnalysisResult,
     PostPayload,
     SubredditAnalysisResult,
 )
+from src.shared.settings import Settings
 
 
 class MockLLMProvider(LLMProvider):
@@ -166,3 +170,57 @@ async def test_llm_provider_limits_comments():
     # This should work without error even with many comments
     result = await provider.analyze_post(payload)
     assert isinstance(result, PostAnalysisResult)
+
+
+@pytest.mark.asyncio
+async def test_openai_provider_omits_temperature_for_gpt5_models():
+    """Test GPT-5 models do not receive an explicit temperature parameter."""
+    provider = OpenAIProvider(
+        settings=Settings(
+            openai_api_key="test",
+            openai_model="gpt-5-mini",
+            openai_temperature=0.2,
+            database_url="sqlite+aiosqlite:///:memory:",
+        )
+    )
+    create_mock = AsyncMock(
+        return_value=SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content='{"ok": true}'))]
+        )
+    )
+    provider._client = SimpleNamespace(
+        chat=SimpleNamespace(completions=SimpleNamespace(create=create_mock))
+    )
+
+    result = await provider.complete("system", "user")
+
+    assert result == '{"ok": true}'
+    kwargs = create_mock.await_args.kwargs
+    assert kwargs["model"] == "gpt-5-mini"
+    assert "temperature" not in kwargs
+
+
+@pytest.mark.asyncio
+async def test_openai_provider_keeps_temperature_for_non_gpt5_models():
+    """Test legacy models continue receiving the configured temperature."""
+    provider = OpenAIProvider(
+        settings=Settings(
+            openai_api_key="test",
+            openai_model="gpt-4o-mini",
+            openai_temperature=0.2,
+            database_url="sqlite+aiosqlite:///:memory:",
+        )
+    )
+    create_mock = AsyncMock(
+        return_value=SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content='{"ok": true}'))]
+        )
+    )
+    provider._client = SimpleNamespace(
+        chat=SimpleNamespace(completions=SimpleNamespace(create=create_mock))
+    )
+
+    await provider.complete("system", "user")
+
+    kwargs = create_mock.await_args.kwargs
+    assert kwargs["temperature"] == 0.2

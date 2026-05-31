@@ -16,16 +16,24 @@ class OpenAIProvider(LLMProvider):
         self._settings = settings or get_settings()
         self._client = AsyncOpenAI(api_key=self._settings.openai_api_key)
 
-    async def complete(self, system_prompt: str, user_content: str) -> str:
-        """Generate a completion using the OpenAI chat completions API."""
-        response = await self._client.chat.completions.create(
-            model=self._settings.openai_model,
-            temperature=self._settings.openai_temperature,
-            response_format={"type": "json_object"},
-            messages=[
+    def _build_completion_params(self, system_prompt: str, user_content: str) -> dict:
+        """Build chat completion parameters compatible with the configured model."""
+        params = {
+            "model": self._settings.openai_model,
+            "response_format": {"type": "json_object"},
+            "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content},
             ],
+        }
+        if not self._settings.openai_model.startswith("gpt-5"):
+            params["temperature"] = self._settings.openai_temperature
+        return params
+
+    async def complete(self, system_prompt: str, user_content: str) -> str:
+        """Generate a completion using the OpenAI chat completions API."""
+        response = await self._client.chat.completions.create(
+            **self._build_completion_params(system_prompt, user_content)
         )
         return response.choices[0].message.content or ""
 
