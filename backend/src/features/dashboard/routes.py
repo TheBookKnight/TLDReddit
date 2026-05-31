@@ -1,5 +1,5 @@
 """Dashboard API routes."""
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -7,14 +7,28 @@ from sqlalchemy.orm import selectinload
 from src.database.base import get_session
 from src.database.models import Post, SubredditAnalysis
 from src.database.models import Subreddit as SubredditModel
+from src.features.dashboard.schemas import (
+    DashboardLatestAnalysis,
+    DashboardOverviewResponse,
+    DashboardPostDetailAnalysis,
+    DashboardPostDetailResponse,
+    DashboardPostSummary,
+    DashboardSubredditDetailResponse,
+    DashboardSubredditSummary,
+)
 
 router = APIRouter()
 
 
-@router.get("/overview")
+@router.get(
+    "/overview",
+    response_model=DashboardOverviewResponse,
+    summary="Get dashboard overview",
+    description="Return active monitored subreddits with the latest aggregate analysis shown on the dashboard landing view.",
+)
 async def get_overview(
     session: AsyncSession = Depends(get_session),
-) -> dict:
+) -> DashboardOverviewResponse:
     """Get an overview of all monitored subreddits with their latest analysis."""
     result = await session.execute(
         select(SubredditModel).where(SubredditModel.is_active.is_(True)).order_by(SubredditModel.name)
@@ -48,12 +62,17 @@ async def get_overview(
     return {"subreddits": overview, "total": len(overview)}
 
 
-@router.get("/subreddit/{name}")
+@router.get(
+    "/subreddit/{name}",
+    response_model=DashboardSubredditDetailResponse,
+    summary="Get dashboard subreddit detail",
+    description="Return one monitored subreddit with its latest aggregate analysis and recent analyzed posts.",
+)
 async def get_subreddit_detail(
-    name: str,
+    name: str = Path(..., description="Canonical subreddit name without the r/ prefix.", examples=["stocks"]),
     session: AsyncSession = Depends(get_session),
     posts_limit: int = Query(default=10, ge=1, le=50),
-) -> dict:
+) -> DashboardSubredditDetailResponse:
     """Get detailed view for a specific subreddit."""
     result = await session.execute(
         select(SubredditModel).where(SubredditModel.name == name)
@@ -81,18 +100,18 @@ async def get_subreddit_detail(
     )
     posts = posts_result.scalars().all()
 
-    def _post_dict(p: Post) -> dict:
+    def _post_dict(p: Post) -> DashboardPostSummary:
         a = p.analysis
-        return {
-            "id": p.id,
-            "reddit_id": p.reddit_id,
-            "title": p.title,
-            "score": p.score,
-            "num_comments": p.num_comments,
-            "url": p.url,
-            "permalink": p.permalink,
-            "reddit_created_at": p.reddit_created_at.isoformat() if p.reddit_created_at else None,
-            "analysis": {
+        return DashboardPostSummary(
+            id=p.id,
+            reddit_id=p.reddit_id,
+            title=p.title,
+            score=p.score,
+            num_comments=p.num_comments,
+            url=p.url,
+            permalink=p.permalink,
+            reddit_created_at=p.reddit_created_at.isoformat() if p.reddit_created_at else None,
+            analysis={
                 "post_summary": a.post_summary,
                 "overall_sentiment": a.overall_sentiment,
                 "sentiment_score": a.sentiment_score,
@@ -103,36 +122,41 @@ async def get_subreddit_detail(
             }
             if a
             else None,
-        }
+        )
 
-    return {
-        "subreddit": {
-            "id": subreddit.id,
-            "name": subreddit.name,
-            "display_name": subreddit.display_name,
-            "description": subreddit.description,
-            "is_active": subreddit.is_active,
-        },
-        "latest_analysis": {
-            "analysis_date": latest.analysis_date,
-            "major_themes": latest.major_themes or [],
-            "emerging_topics": latest.emerging_topics or [],
-            "community_sentiment": latest.community_sentiment,
-            "community_sentiment_score": latest.community_sentiment_score,
-            "notable_shifts": latest.notable_shifts or [],
-            "summary": latest.summary,
-        }
+    return DashboardSubredditDetailResponse(
+        subreddit=DashboardSubredditSummary(
+            id=subreddit.id,
+            name=subreddit.name,
+            display_name=subreddit.display_name,
+            description=subreddit.description,
+            is_active=subreddit.is_active,
+        ),
+        latest_analysis=DashboardLatestAnalysis(
+            analysis_date=latest.analysis_date,
+            major_themes=latest.major_themes or [],
+            emerging_topics=latest.emerging_topics or [],
+            community_sentiment=latest.community_sentiment,
+            community_sentiment_score=latest.community_sentiment_score,
+            notable_shifts=latest.notable_shifts or [],
+            summary=latest.summary,
+        )
         if latest
         else None,
-        "posts": [_post_dict(p) for p in posts],
-    }
+        posts=[_post_dict(p) for p in posts],
+    )
 
 
-@router.get("/post/{post_id}")
+@router.get(
+    "/post/{post_id}",
+    response_model=DashboardPostDetailResponse,
+    summary="Get dashboard post detail",
+    description="Return one monitored Reddit post together with its full generated analysis.",
+)
 async def get_post_detail(
-    post_id: int,
+    post_id: int = Path(..., description="Internal post identifier.", examples=[11]),
     session: AsyncSession = Depends(get_session),
-) -> dict:
+) -> DashboardPostDetailResponse:
     """Get detailed view for a single post."""
     result = await session.execute(
         select(Post).where(Post.id == post_id).options(selectinload(Post.analysis))
@@ -142,28 +166,28 @@ async def get_post_detail(
         raise HTTPException(status_code=404, detail=f"Post {post_id} not found.")
 
     a = post.analysis
-    return {
-        "id": post.id,
-        "reddit_id": post.reddit_id,
-        "title": post.title,
-        "body": post.body,
-        "score": post.score,
-        "num_comments": post.num_comments,
-        "url": post.url,
-        "permalink": post.permalink,
-        "author": post.author,
-        "reddit_created_at": post.reddit_created_at.isoformat() if post.reddit_created_at else None,
-        "analysis": {
-            "post_summary": a.post_summary,
-            "overall_sentiment": a.overall_sentiment,
-            "sentiment_score": a.sentiment_score,
-            "key_community_takeaways": a.key_community_takeaways or [],
-            "bullish_arguments": a.bullish_arguments or [],
-            "bearish_arguments": a.bearish_arguments or [],
-            "confidence": a.confidence,
-            "top_comments": a.top_comments_raw or [],
-            "analyzed_at": a.analyzed_at.isoformat() if a.analyzed_at else None,
-        }
+    return DashboardPostDetailResponse(
+        id=post.id,
+        reddit_id=post.reddit_id,
+        title=post.title,
+        body=post.body,
+        score=post.score,
+        num_comments=post.num_comments,
+        url=post.url,
+        permalink=post.permalink,
+        author=post.author,
+        reddit_created_at=post.reddit_created_at.isoformat() if post.reddit_created_at else None,
+        analysis=DashboardPostDetailAnalysis(
+            post_summary=a.post_summary,
+            overall_sentiment=a.overall_sentiment,
+            sentiment_score=a.sentiment_score,
+            key_community_takeaways=a.key_community_takeaways or [],
+            bullish_arguments=a.bullish_arguments or [],
+            bearish_arguments=a.bearish_arguments or [],
+            confidence=a.confidence,
+            top_comments=a.top_comments_raw or [],
+            analyzed_at=a.analyzed_at.isoformat() if a.analyzed_at else None,
+        )
         if a
         else None,
-    }
+    )

@@ -1,5 +1,5 @@
 """Ingestion API routes."""
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +8,11 @@ from src.database.models import AnalysisRun
 from src.database.models import Subreddit as SubredditModel
 from src.features.post_analysis.openai_provider import get_llm_provider
 from src.features.reddit_client.client import RedditClient
+from src.features.subreddit_ingestion.schemas import (
+    AnalysisRunResponse,
+    IngestionTriggerAllResponse,
+    IngestionTriggerResponse,
+)
 from src.features.subreddit_ingestion.service import IngestionService
 
 router = APIRouter()
@@ -26,12 +31,22 @@ async def _run_ingestion(subreddit_name: str) -> None:
             await session.commit()
 
 
-@router.post("/run/{subreddit_name}", status_code=202)
+@router.post(
+    "/run/{subreddit_name}",
+    response_model=IngestionTriggerResponse,
+    status_code=202,
+    summary="Trigger subreddit ingestion",
+    description="Queue a background ingestion and analysis run for a single monitored subreddit.",
+)
 async def trigger_ingestion(
-    subreddit_name: str,
     background_tasks: BackgroundTasks,
+    subreddit_name: str = Path(
+        ...,
+        description="Canonical subreddit name without the r/ prefix.",
+        examples=["stocks"],
+    ),
     session: AsyncSession = Depends(get_session),
-) -> dict:
+) -> IngestionTriggerResponse:
     """Trigger an ingestion run for a specific subreddit."""
     result = await session.execute(
         select(SubredditModel).where(SubredditModel.name == subreddit_name)
@@ -41,14 +56,23 @@ async def trigger_ingestion(
         raise HTTPException(status_code=404, detail=f"Subreddit '{subreddit_name}' not found.")
 
     background_tasks.add_task(_run_ingestion, subreddit_name)
-    return {"message": f"Ingestion started for r/{subreddit_name}", "subreddit": subreddit_name}
+    return IngestionTriggerResponse(
+        message=f"Ingestion started for r/{subreddit_name}",
+        subreddit=subreddit_name,
+    )
 
 
-@router.post("/run-all", status_code=202)
+@router.post(
+    "/run-all",
+    response_model=IngestionTriggerAllResponse,
+    status_code=202,
+    summary="Trigger ingestion for all active subreddits",
+    description="Queue background ingestion and analysis runs for every active monitored subreddit.",
+)
 async def trigger_all_ingestion(
     background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_session),
-) -> dict:
+) -> IngestionTriggerAllResponse:
     """Trigger ingestion for all active subreddits."""
     result = await session.execute(
         select(SubredditModel).where(SubredditModel.is_active.is_(True))
@@ -58,18 +82,27 @@ async def trigger_all_ingestion(
     for subreddit in subreddits:
         background_tasks.add_task(_run_ingestion, subreddit.name)
 
-    return {
-        "message": f"Ingestion started for {len(subreddits)} subreddits",
-        "subreddits": [s.name for s in subreddits],
-    }
+    return IngestionTriggerAllResponse(
+        message=f"Ingestion started for {len(subreddits)} subreddits",
+        subreddits=[s.name for s in subreddits],
+    )
 
 
-@router.get("/runs/{subreddit_name}")
+@router.get(
+    "/runs/{subreddit_name}",
+    response_model=list[AnalysisRunResponse],
+    summary="List ingestion runs",
+    description="Return recent ingestion and analysis runs recorded for a monitored subreddit.",
+)
 async def list_runs(
-    subreddit_name: str,
+    subreddit_name: str = Path(
+        ...,
+        description="Canonical subreddit name without the r/ prefix.",
+        examples=["stocks"],
+    ),
     session: AsyncSession = Depends(get_session),
-    limit: int = 10,
-) -> list[dict]:
+    limit: int = Query(default=10, ge=1, le=100, description="Maximum number of recent runs to return."),
+) -> list[AnalysisRunResponse]:
     """List recent analysis runs for a subreddit."""
     result = await session.execute(
         select(SubredditModel).where(SubredditModel.name == subreddit_name)
@@ -87,13 +120,13 @@ async def list_runs(
     runs = runs_result.scalars().all()
 
     return [
-        {
-            "id": r.id,
-            "status": r.status,
-            "posts_processed": r.posts_processed,
-            "started_at": r.started_at.isoformat() if r.started_at else None,
-            "completed_at": r.completed_at.isoformat() if r.completed_at else None,
-            "error_message": r.error_message,
-        }
+        AnalysisRunResponse(
+            id=r.id,
+            status=r.status,
+            posts_processed=r.posts_processed,
+            started_at=r.started_at.isoformat() if r.started_at else None,
+            completed_at=r.completed_at.isoformat() if r.completed_at else None,
+            error_message=r.error_message,
+        )
         for r in runs
     ]

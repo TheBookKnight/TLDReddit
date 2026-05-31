@@ -1,5 +1,5 @@
 """Subreddit configuration API routes."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,10 +14,18 @@ from src.features.configuration.schemas import (
 router = APIRouter()
 
 
-@router.get("/", response_model=list[SubredditResponse])
+@router.get(
+    "/",
+    response_model=list[SubredditResponse],
+    summary="List configured subreddits",
+    description="Return the monitored subreddit configurations, optionally including inactive entries.",
+)
 async def list_subreddits(
     session: AsyncSession = Depends(get_session),
-    include_inactive: bool = False,
+    include_inactive: bool = Query(
+        default=False,
+        description="Include subreddits that have been disabled for monitoring.",
+    ),
 ) -> list[SubredditModel]:
     """List all configured subreddits."""
     query = select(SubredditModel)
@@ -27,9 +35,18 @@ async def list_subreddits(
     return list(result.scalars().all())
 
 
-@router.post("/", response_model=SubredditResponse, status_code=201)
+@router.post(
+    "/",
+    response_model=SubredditResponse,
+    status_code=201,
+    summary="Create a subreddit configuration",
+    description="Add a subreddit to the monitoring list so ingestion and downstream analysis can process it.",
+)
 async def create_subreddit(
-    data: SubredditCreate,
+    data: SubredditCreate = Body(
+        ...,
+        description="Configuration values for the subreddit to monitor.",
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> SubredditModel:
     """Add a new subreddit to monitor."""
@@ -50,9 +67,14 @@ async def create_subreddit(
     return subreddit
 
 
-@router.get("/{name}", response_model=SubredditResponse)
+@router.get(
+    "/{name}",
+    response_model=SubredditResponse,
+    summary="Get subreddit configuration",
+    description="Fetch the stored configuration for a single subreddit by name.",
+)
 async def get_subreddit(
-    name: str,
+    name: str = Path(..., description="Canonical subreddit name without the r/ prefix.", examples=["stocks"]),
     session: AsyncSession = Depends(get_session),
 ) -> SubredditModel:
     """Get a specific subreddit by name."""
@@ -65,10 +87,18 @@ async def get_subreddit(
     return subreddit
 
 
-@router.patch("/{name}", response_model=SubredditResponse)
+@router.patch(
+    "/{name}",
+    response_model=SubredditResponse,
+    summary="Update subreddit configuration",
+    description="Modify display metadata or activation status for an existing monitored subreddit.",
+)
 async def update_subreddit(
-    name: str,
-    data: SubredditUpdate,
+    name: str = Path(..., description="Canonical subreddit name without the r/ prefix.", examples=["stocks"]),
+    data: SubredditUpdate = Body(
+        ...,
+        description="Subset of subreddit fields to update.",
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> SubredditModel:
     """Update a subreddit configuration."""
@@ -91,9 +121,14 @@ async def update_subreddit(
     return subreddit
 
 
-@router.delete("/{name}", status_code=204)
+@router.delete(
+    "/{name}",
+    status_code=204,
+    summary="Disable subreddit monitoring",
+    description="Soft-delete a subreddit by marking it inactive so new ingestion stops without removing history.",
+)
 async def delete_subreddit(
-    name: str,
+    name: str = Path(..., description="Canonical subreddit name without the r/ prefix.", examples=["stocks"]),
     session: AsyncSession = Depends(get_session),
 ) -> None:
     """Remove a subreddit from monitoring (soft delete via is_active=False)."""

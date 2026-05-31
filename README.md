@@ -102,6 +102,8 @@ make dev
 - Frontend: http://localhost:5173
 - API docs: http://localhost:8000/api/docs
 
+Swagger at `/api/docs` is the primary manual-testing surface for the backend API. It now includes route summaries, request-body examples, parameter descriptions, and structured response schemas for the dashboard, trends, ingestion, chat, and configuration endpoints.
+
 ---
 
 ## Docker

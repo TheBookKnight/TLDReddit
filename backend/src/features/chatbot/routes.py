@@ -1,5 +1,5 @@
 """Chatbot API routes."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -24,9 +24,18 @@ _CHAT_SYSTEM = (
 )
 
 
-@router.post("/sessions", response_model=ChatSessionResponse, status_code=201)
+@router.post(
+    "/sessions",
+    response_model=ChatSessionResponse,
+    status_code=201,
+    summary="Create a chat session",
+    description="Create a saved chat session that can later receive user and assistant messages.",
+)
 async def create_session(
-    data: ChatSessionCreate,
+    data: ChatSessionCreate = Body(
+        ...,
+        description="Optional title used to identify the chat session in the UI.",
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> ChatSession:
     """Create a new chat session."""
@@ -42,10 +51,20 @@ async def create_session(
     return result.scalar_one()
 
 
-@router.get("/sessions", response_model=list[ChatSessionResponse])
+@router.get(
+    "/sessions",
+    response_model=list[ChatSessionResponse],
+    summary="List chat sessions",
+    description="Return recent chat sessions ordered by their latest activity.",
+)
 async def list_sessions(
     session: AsyncSession = Depends(get_session),
-    limit: int = 20,
+    limit: int = Query(
+        default=20,
+        ge=1,
+        le=100,
+        description="Maximum number of chat sessions to return.",
+    ),
 ) -> list[ChatSession]:
     """List all chat sessions."""
     result = await session.execute(
@@ -57,9 +76,14 @@ async def list_sessions(
     return list(result.scalars().all())
 
 
-@router.get("/sessions/{session_id}", response_model=ChatSessionResponse)
+@router.get(
+    "/sessions/{session_id}",
+    response_model=ChatSessionResponse,
+    summary="Get chat session details",
+    description="Fetch a single chat session together with its stored message history.",
+)
 async def get_session_detail(
-    session_id: int,
+    session_id: int = Path(..., description="Internal chat session identifier.", examples=[7]),
     session: AsyncSession = Depends(get_session),
 ) -> ChatSession:
     """Get a specific chat session with all messages."""
@@ -74,10 +98,19 @@ async def get_session_detail(
     return chat_session
 
 
-@router.post("/sessions/{session_id}/messages", response_model=ChatMessageResponse, status_code=201)
+@router.post(
+    "/sessions/{session_id}/messages",
+    response_model=ChatMessageResponse,
+    status_code=201,
+    summary="Send a chat message",
+    description="Store a user message, retrieve relevant Reddit context, and return the assistant response.",
+)
 async def send_message(
-    session_id: int,
-    data: ChatMessageCreate,
+    session_id: int = Path(..., description="Internal chat session identifier.", examples=[7]),
+    data: ChatMessageCreate = Body(
+        ...,
+        description="The user message to send to the Reddit trend assistant.",
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> ChatMessage:
     """Send a user message and get an AI response."""
@@ -127,9 +160,14 @@ async def send_message(
     return assistant_msg
 
 
-@router.delete("/sessions/{session_id}", status_code=204)
+@router.delete(
+    "/sessions/{session_id}",
+    status_code=204,
+    summary="Delete a chat session",
+    description="Delete a chat session together with all stored messages for that session.",
+)
 async def delete_session(
-    session_id: int,
+    session_id: int = Path(..., description="Internal chat session identifier.", examples=[7]),
     session: AsyncSession = Depends(get_session),
 ) -> None:
     """Delete a chat session and all its messages."""
