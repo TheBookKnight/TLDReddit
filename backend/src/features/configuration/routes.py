@@ -19,7 +19,10 @@ router = APIRouter()
     "/",
     response_model=list[SubredditResponse],
     summary="List configured subreddits",
-    description="Return the monitored subreddit configurations, optionally including inactive entries.",
+    description=(
+        "Return the monitored subreddit configurations, optionally "
+        "including inactive entries."
+    ),
 )
 async def list_subreddits(
     session: AsyncSession = Depends(get_session),
@@ -41,7 +44,10 @@ async def list_subreddits(
     response_model=SubredditResponse,
     status_code=201,
     summary="Create a subreddit configuration",
-    description="Add a subreddit to the monitoring list so ingestion and downstream analysis can process it.",
+    description=(
+        "Add a subreddit to the monitoring list so ingestion and "
+        "downstream analysis can process it."
+    ),
 )
 async def create_subreddit(
     data: SubredditCreate = Body(
@@ -67,13 +73,16 @@ async def create_subreddit(
     await session.refresh(subreddit)
     return subreddit
 
-# WARNING: The following route deletes all subreddits and related data. 
-# Use with caution and ensure proper authentication/authorization is in 
+# WARNING: The following route deletes all subreddits and related data.
+# Use with caution and ensure proper authentication/authorization is in
 # place in a production environment.
 @router.delete(
     "/",
     summary="Delete all subreddit data",
-    description="Permanently remove all configured subreddits together with their stored posts, analyses, and ingestion runs.",
+    description=(
+        "Permanently remove all configured subreddits together with "
+        "their stored posts, analyses, and ingestion runs."
+    ),
 )
 async def delete_all_subreddits(
     session: AsyncSession = Depends(get_session),
@@ -113,7 +122,11 @@ async def delete_all_subreddits(
     description="Fetch the stored configuration for a single subreddit by name.",
 )
 async def get_subreddit(
-    name: str = Path(..., description="Canonical subreddit name without the r/ prefix.", examples=["stocks"]),
+    name: str = Path(
+        ...,
+        description="Canonical subreddit name without the r/ prefix.",
+        examples=["stocks"],
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> SubredditModel:
     """Get a specific subreddit by name."""
@@ -133,7 +146,11 @@ async def get_subreddit(
     description="Modify display metadata or activation status for an existing monitored subreddit.",
 )
 async def update_subreddit(
-    name: str = Path(..., description="Canonical subreddit name without the r/ prefix.", examples=["stocks"]),
+    name: str = Path(
+        ...,
+        description="Canonical subreddit name without the r/ prefix.",
+        examples=["stocks"],
+    ),
     data: SubredditUpdate = Body(
         ...,
         description="Subset of subreddit fields to update.",
@@ -164,10 +181,17 @@ async def update_subreddit(
     "/{name}",
     status_code=204,
     summary="Disable subreddit monitoring",
-    description="Soft-delete a subreddit by marking it inactive so new ingestion stops without removing history.",
+    description=(
+        "Soft-delete a subreddit by marking it inactive so new ingestion "
+        "stops without removing history."
+    ),
 )
 async def delete_subreddit(
-    name: str = Path(..., description="Canonical subreddit name without the r/ prefix.", examples=["stocks"]),
+    name: str = Path(
+        ...,
+        description="Canonical subreddit name without the r/ prefix.",
+        examples=["stocks"],
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> None:
     """Remove a subreddit from monitoring (soft delete via is_active=False)."""

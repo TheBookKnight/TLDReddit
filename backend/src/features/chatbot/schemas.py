@@ -67,7 +67,10 @@ class ChatMessageResponse(BaseModel):
                 "id": 42,
                 "session_id": 7,
                 "role": "assistant",
-                "content": "Community sentiment is mildly bullish, driven by recent product launches.",
+                "content": (
+                    "Community sentiment is mildly bullish, driven by recent "
+                    "product launches."
+                ),
                 "created_at": "2026-05-31T14:22:00Z",
             }
         },
@@ -103,7 +106,10 @@ class ChatSessionResponse(BaseModel):
                         "id": 42,
                         "session_id": 7,
                         "role": "assistant",
-                        "content": "Community sentiment is mildly bullish, driven by recent product launches.",
+                        "content": (
+                            "Community sentiment is mildly bullish, driven by recent "
+                            "product launches."
+                        ),
                         "created_at": "2026-05-31T14:22:00Z",
                     }
                 ],

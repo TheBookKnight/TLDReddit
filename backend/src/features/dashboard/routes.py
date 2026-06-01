@@ -9,7 +9,9 @@ from src.database.models import Post, SubredditAnalysis
 from src.database.models import Subreddit as SubredditModel
 from src.features.dashboard.schemas import (
     DashboardLatestAnalysis,
+    DashboardOverviewItem,
     DashboardOverviewResponse,
+    DashboardPostAnalysisSummary,
     DashboardPostDetailAnalysis,
     DashboardPostDetailResponse,
     DashboardPostSummary,
@@ -24,7 +26,10 @@ router = APIRouter()
     "/overview",
     response_model=DashboardOverviewResponse,
     summary="Get dashboard overview",
-    description="Return active monitored subreddits with the latest aggregate analysis shown on the dashboard landing view.",
+    description=(
+        "Return active monitored subreddits with the latest aggregate "
+        "analysis shown on the dashboard landing view."
+    ),
 )
 async def get_overview(
     session: AsyncSession = Depends(get_session),
@@ -35,7 +40,7 @@ async def get_overview(
     )
     subreddits = result.scalars().all()
 
-    overview = []
+    overview: list[DashboardOverviewItem] = []
     for subreddit in subreddits:
         # Get latest analysis
         analysis_result = await session.execute(
@@ -47,29 +52,36 @@ async def get_overview(
         latest = analysis_result.scalar_one_or_none()
 
         overview.append(
-            {
-                "id": subreddit.id,
-                "name": subreddit.name,
-                "display_name": subreddit.display_name,
-                "latest_analysis_date": latest.analysis_date if latest else None,
-                "community_sentiment": latest.community_sentiment if latest else None,
-                "community_sentiment_score": latest.community_sentiment_score if latest else None,
-                "major_themes": (latest.major_themes or [])[:3] if latest else [],
-                "summary": latest.summary if latest else None,
-            }
+            DashboardOverviewItem(
+                id=subreddit.id,
+                name=subreddit.name,
+                display_name=subreddit.display_name,
+                latest_analysis_date=latest.analysis_date if latest else None,
+                community_sentiment=latest.community_sentiment if latest else None,
+                community_sentiment_score=latest.community_sentiment_score if latest else None,
+                major_themes=(latest.major_themes or [])[:3] if latest else [],
+                summary=latest.summary if latest else None,
+            )
         )
 
-    return {"subreddits": overview, "total": len(overview)}
+    return DashboardOverviewResponse(subreddits=overview, total=len(overview))
 
 
 @router.get(
     "/subreddit/{name}",
     response_model=DashboardSubredditDetailResponse,
     summary="Get dashboard subreddit detail",
-    description="Return one monitored subreddit with its latest aggregate analysis and recent analyzed posts.",
+    description=(
+        "Return one monitored subreddit with its latest aggregate analysis "
+        "and recent analyzed posts."
+    ),
 )
 async def get_subreddit_detail(
-    name: str = Path(..., description="Canonical subreddit name without the r/ prefix.", examples=["stocks"]),
+    name: str = Path(
+        ...,
+        description="Canonical subreddit name without the r/ prefix.",
+        examples=["stocks"],
+    ),
     session: AsyncSession = Depends(get_session),
     posts_limit: int = Query(default=10, ge=1, le=50),
 ) -> DashboardSubredditDetailResponse:
@@ -111,15 +123,15 @@ async def get_subreddit_detail(
             url=p.url,
             permalink=p.permalink,
             reddit_created_at=p.reddit_created_at.isoformat() if p.reddit_created_at else None,
-            analysis={
-                "post_summary": a.post_summary,
-                "overall_sentiment": a.overall_sentiment,
-                "sentiment_score": a.sentiment_score,
-                "key_community_takeaways": a.key_community_takeaways or [],
-                "bullish_arguments": a.bullish_arguments or [],
-                "bearish_arguments": a.bearish_arguments or [],
-                "confidence": a.confidence,
-            }
+            analysis=DashboardPostAnalysisSummary(
+                post_summary=a.post_summary,
+                overall_sentiment=a.overall_sentiment,
+                sentiment_score=a.sentiment_score,
+                key_community_takeaways=a.key_community_takeaways or [],
+                bullish_arguments=a.bullish_arguments or [],
+                bearish_arguments=a.bearish_arguments or [],
+                confidence=a.confidence,
+            )
             if a
             else None,
         )

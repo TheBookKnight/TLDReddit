@@ -6,7 +6,10 @@ class DashboardOverviewItem(BaseModel):
     """High-level dashboard summary for one monitored subreddit."""
 
     id: int = Field(description="Internal identifier for the monitored subreddit.", examples=[3])
-    name: str = Field(description="Canonical subreddit name without the r/ prefix.", examples=["stocks"])
+    name: str = Field(
+        description="Canonical subreddit name without the r/ prefix.",
+        examples=["stocks"],
+    )
     display_name: str | None = Field(
         description="Optional display label shown in the dashboard.",
         examples=["r/stocks"],
@@ -68,7 +71,10 @@ class DashboardSubredditSummary(BaseModel):
     """Basic subreddit metadata used by detailed dashboard views."""
 
     id: int = Field(description="Internal identifier for the monitored subreddit.", examples=[3])
-    name: str = Field(description="Canonical subreddit name without the r/ prefix.", examples=["stocks"])
+    name: str = Field(
+        description="Canonical subreddit name without the r/ prefix.",
+        examples=["stocks"],
+    )
     display_name: str | None = Field(
         description="Optional display label shown in the dashboard.",
         examples=["r/stocks"],
@@ -86,7 +92,10 @@ class DashboardSubredditSummary(BaseModel):
 class DashboardLatestAnalysis(BaseModel):
     """Latest aggregate analysis for a subreddit."""
 
-    analysis_date: str = Field(description="Date represented by the analysis snapshot.", examples=["2024-01-15"])
+    analysis_date: str = Field(
+        description="Date represented by the analysis snapshot.",
+        examples=["2024-01-15"],
+    )
     major_themes: list[str] = Field(
         default_factory=list,
         description="Major themes identified in the subreddit conversation.",
@@ -159,8 +168,14 @@ class DashboardPostSummary(BaseModel):
     reddit_id: str = Field(description="Original Reddit post identifier.", examples=["post_stocks"])
     title: str = Field(description="Title of the Reddit post.", examples=["Test Post"])
     score: int = Field(description="Reddit score captured during ingestion.", examples=[100])
-    num_comments: int = Field(description="Number of comments captured during ingestion.", examples=[10])
-    url: str | None = Field(description="External URL associated with the post, if any.", examples=[None])
+    num_comments: int = Field(
+        description="Number of comments captured during ingestion.",
+        examples=[10],
+    )
+    url: str | None = Field(
+        description="External URL associated with the post, if any.",
+        examples=[None],
+    )
     permalink: str | None = Field(
         description="Reddit permalink for the captured post.",
         examples=["/r/stocks/comments/post_stocks/"],
@@ -212,13 +227,22 @@ class DashboardPostDetailResponse(BaseModel):
         examples=["Investors are debating AI demand and earnings quality."],
     )
     score: int = Field(description="Reddit score captured during ingestion.", examples=[100])
-    num_comments: int = Field(description="Number of comments captured during ingestion.", examples=[10])
-    url: str | None = Field(description="External URL associated with the post, if any.", examples=[None])
+    num_comments: int = Field(
+        description="Number of comments captured during ingestion.",
+        examples=[10],
+    )
+    url: str | None = Field(
+        description="External URL associated with the post, if any.",
+        examples=[None],
+    )
     permalink: str | None = Field(
         description="Reddit permalink for the captured post.",
         examples=["/r/stocks/comments/post_stocks/"],
     )
-    author: str | None = Field(description="Reddit username of the post author.", examples=["marketwatcher42"])
+    author: str | None = Field(
+        description="Reddit username of the post author.",
+        examples=["marketwatcher42"],
+    )
     reddit_created_at: str | None = Field(
         description="Original Reddit creation timestamp serialized to ISO-8601.",
         examples=["2026-05-31T14:00:00+00:00"],

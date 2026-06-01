@@ -67,7 +67,10 @@ async def trigger_ingestion(
     response_model=IngestionTriggerAllResponse,
     status_code=202,
     summary="Trigger ingestion for all active subreddits",
-    description="Queue background ingestion and analysis runs for every active monitored subreddit.",
+    description=(
+        "Queue background ingestion and analysis runs for every active "
+        "monitored subreddit."
+    ),
 )
 async def trigger_all_ingestion(
     background_tasks: BackgroundTasks,
@@ -101,7 +104,12 @@ async def list_runs(
         examples=["stocks"],
     ),
     session: AsyncSession = Depends(get_session),
-    limit: int = Query(default=10, ge=1, le=100, description="Maximum number of recent runs to return."),
+    limit: int = Query(
+        default=10,
+        ge=1,
+        le=100,
+        description="Maximum number of recent runs to return.",
+    ),
 ) -> list[AnalysisRunResponse]:
     """List recent analysis runs for a subreddit."""
     result = await session.execute(

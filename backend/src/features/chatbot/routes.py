@@ -103,7 +103,10 @@ async def get_session_detail(
     response_model=ChatMessageResponse,
     status_code=201,
     summary="Send a chat message",
-    description="Store a user message, retrieve relevant Reddit context, and return the assistant response.",
+    description=(
+        "Store a user message, retrieve relevant Reddit context, "
+        "and return the assistant response."
+    ),
 )
 async def send_message(
     session_id: int = Path(..., description="Internal chat session identifier.", examples=[7]),

@@ -80,7 +80,10 @@ class SubredditResponse(BaseModel):
     """Subreddit response schema."""
 
     id: int = Field(description="Internal identifier for the configured subreddit.", examples=[3])
-    name: str = Field(description="Canonical subreddit name without the r/ prefix.", examples=["stocks"])
+    name: str = Field(
+        description="Canonical subreddit name without the r/ prefix.",
+        examples=["stocks"],
+    )
     display_name: str | None = Field(
         description="UI-facing display name.",
         examples=["r/stocks"],

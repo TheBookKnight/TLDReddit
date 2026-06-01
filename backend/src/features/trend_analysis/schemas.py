@@ -5,7 +5,10 @@ from pydantic import BaseModel, Field, RootModel
 class TrendScorePoint(BaseModel):
     """Single point used in subreddit sentiment comparisons."""
 
-    date: str = Field(description="Analysis date represented by the data point.", examples=["2024-01-15"])
+    date: str = Field(
+        description="Analysis date represented by the data point.",
+        examples=["2024-01-15"],
+    )
     score: float | None = Field(
         description="Normalized sentiment score between -1 and 1 for that analysis date.",
         examples=[0.7],
@@ -35,7 +38,10 @@ class CompareSentimentResponse(RootModel[dict[str, list[TrendScorePoint]]]):
 class SentimentTrendPoint(BaseModel):
     """Time-series sentiment point for a single subreddit."""
 
-    date: str = Field(description="Analysis date represented by the data point.", examples=["2024-01-15"])
+    date: str = Field(
+        description="Analysis date represented by the data point.",
+        examples=["2024-01-15"],
+    )
     community_sentiment: str | None = Field(
         description="Sentiment label assigned to the subreddit on that date.",
         examples=["positive"],
@@ -49,7 +55,10 @@ class SentimentTrendPoint(BaseModel):
 class ThemeTrendPoint(BaseModel):
     """Time-series themes for a single subreddit."""
 
-    date: str = Field(description="Analysis date represented by the data point.", examples=["2024-01-15"])
+    date: str = Field(
+        description="Analysis date represented by the data point.",
+        examples=["2024-01-15"],
+    )
     major_themes: list[str] = Field(
         default_factory=list,
         description="Top discussion themes identified for that date.",
@@ -66,8 +75,14 @@ class LatestTrendAnalysisResponse(BaseModel):
     """Latest aggregate analysis snapshot for a subreddit."""
 
     id: int = Field(description="Internal identifier for the stored analysis.", examples=[12])
-    subreddit: str = Field(description="Canonical subreddit name without the r/ prefix.", examples=["stocks"])
-    analysis_date: str = Field(description="Date represented by the analysis snapshot.", examples=["2024-01-15"])
+    subreddit: str = Field(
+        description="Canonical subreddit name without the r/ prefix.",
+        examples=["stocks"],
+    )
+    analysis_date: str = Field(
+        description="Date represented by the analysis snapshot.",
+        examples=["2024-01-15"],
+    )
     major_themes: list[str] = Field(
         default_factory=list,
         description="Top discussion themes identified in the latest analysis.",

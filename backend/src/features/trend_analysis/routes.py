@@ -13,6 +13,7 @@ from src.features.trend_analysis.schemas import (
     LatestTrendAnalysisResponse,
     SentimentTrendPoint,
     ThemeTrendPoint,
+    TrendScorePoint,
 )
 
 router = APIRouter()
@@ -22,7 +23,10 @@ router = APIRouter()
     "/compare/sentiment",
     response_model=CompareSentimentResponse,
     summary="Compare subreddit sentiment",
-    description="Return sentiment score series for multiple subreddits over the requested time window.",
+    description=(
+        "Return sentiment score series for multiple subreddits over the "
+        "requested time window."
+    ),
 )
 async def compare_sentiment(
     subreddits: list[str] = Query(
@@ -30,12 +34,17 @@ async def compare_sentiment(
         description="One or more subreddit names to compare.",
         examples=[["stocks", "technology"]],
     ),
-    days: int = Query(default=30, ge=1, le=365, description="How many trailing days of analyses to include."),
+    days: int = Query(
+        default=30,
+        ge=1,
+        le=365,
+        description="How many trailing days of analyses to include.",
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> CompareSentimentResponse:
     """Compare sentiment scores across multiple subreddits."""
     cutoff = datetime.now(UTC) - timedelta(days=days)
-    result: dict[str, list[dict]] = {}
+    result: dict[str, list[TrendScorePoint]] = {}
 
     for name in subreddits:
         sr_result = await session.execute(
@@ -56,10 +65,10 @@ async def compare_sentiment(
         )
         analyses = analyses_result.scalars().all()
         result[name] = [
-            {
-                "date": a.analysis_date,
-                "score": a.community_sentiment_score,
-            }
+            TrendScorePoint(
+                date=a.analysis_date,
+                score=a.community_sentiment_score,
+            )
             for a in analyses
         ]
 
@@ -78,7 +87,12 @@ async def get_sentiment_trend(
         description="Canonical subreddit name without the r/ prefix.",
         examples=["stocks"],
     ),
-    days: int = Query(default=30, ge=1, le=365, description="How many trailing days of analyses to include."),
+    days: int = Query(
+        default=30,
+        ge=1,
+        le=365,
+        description="How many trailing days of analyses to include.",
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> list[SentimentTrendPoint]:
     """Get sentiment score trend over time for a subreddit."""
@@ -114,7 +128,10 @@ async def get_sentiment_trend(
     "/{subreddit_name}/themes",
     response_model=list[ThemeTrendPoint],
     summary="Get subreddit themes over time",
-    description="Return major themes and emerging topics for one subreddit over the requested time window.",
+    description=(
+        "Return major themes and emerging topics for one subreddit over "
+        "the requested time window."
+    ),
 )
 async def get_themes_over_time(
     subreddit_name: str = Path(
@@ -122,7 +139,12 @@ async def get_themes_over_time(
         description="Canonical subreddit name without the r/ prefix.",
         examples=["stocks"],
     ),
-    days: int = Query(default=30, ge=1, le=365, description="How many trailing days of analyses to include."),
+    days: int = Query(
+        default=30,
+        ge=1,
+        le=365,
+        description="How many trailing days of analyses to include.",
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> list[ThemeTrendPoint]:
     """Get major themes over time for a subreddit."""
