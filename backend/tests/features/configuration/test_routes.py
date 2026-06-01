@@ -1,5 +1,9 @@
 """Tests for the configuration (subreddits) API routes."""
+from datetime import UTC, datetime
+
 import pytest
+from src.database.models import AnalysisRun, Post, PostAnalysis, SubredditAnalysis
+from src.database.models import Subreddit as SubredditModel
 
 
 @pytest.mark.asyncio
@@ -82,6 +86,62 @@ async def test_delete_subreddit(client, sample_subreddit):
     list_response = await client.get("/api/v1/subreddits/")
     names = [s["name"] for s in list_response.json()]
     assert sample_subreddit.name not in names
+
+
+@pytest.mark.asyncio
+async def test_delete_all_subreddits_removes_related_data(client, db_session):
+    """Test bulk delete removes subreddit configs and related stored analysis data."""
+    subreddit = SubredditModel(name="cleanupsub", is_active=True)
+    db_session.add(subreddit)
+    await db_session.flush()
+
+    run = AnalysisRun(subreddit_id=subreddit.id, status="completed", posts_processed=1)
+    db_session.add(run)
+    await db_session.flush()
+
+    post = Post(
+        reddit_id="cleanup-post",
+        subreddit_id=subreddit.id,
+        title="Cleanup Post",
+        permalink="/r/cleanupsub/comments/cleanup-post/",
+        reddit_created_at=datetime.now(UTC),
+    )
+    db_session.add(post)
+    await db_session.flush()
+
+    db_session.add(
+        PostAnalysis(
+            post_id=post.id,
+            analysis_run_id=run.id,
+            post_summary="Cleanup summary",
+            overall_sentiment="neutral",
+            sentiment_score=0.0,
+            key_community_takeaways=[],
+            bullish_arguments=[],
+            bearish_arguments=[],
+            confidence=0.5,
+        )
+    )
+    db_session.add(
+        SubredditAnalysis(
+            subreddit_id=subreddit.id,
+            analysis_run_id=run.id,
+            analysis_date="2026-05-31",
+            major_themes=["cleanup"],
+            emerging_topics=[],
+            community_sentiment="neutral",
+            community_sentiment_score=0.0,
+            notable_shifts=[],
+            summary="Cleanup summary",
+        )
+    )
+    await db_session.flush()
+
+    response = await client.delete("/api/v1/subreddits/")
+
+    assert response.status_code == 200
+    assert response.json() == {"deleted_subreddits": 1}
+    assert (await client.get("/api/v1/subreddits/?include_inactive=true")).json() == []
 
 
 @pytest.mark.asyncio

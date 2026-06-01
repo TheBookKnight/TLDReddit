@@ -1,9 +1,10 @@
 """Subreddit configuration API routes."""
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.base import get_session
+from src.database.models import AnalysisRun, Post, PostAnalysis, SubredditAnalysis
 from src.database.models import Subreddit as SubredditModel
 from src.features.configuration.schemas import (
     SubredditCreate,
@@ -65,6 +66,44 @@ async def create_subreddit(
     await session.flush()
     await session.refresh(subreddit)
     return subreddit
+
+# WARNING: The following route deletes all subreddits and related data. 
+# Use with caution and ensure proper authentication/authorization is in 
+# place in a production environment.
+@router.delete(
+    "/",
+    summary="Delete all subreddit data",
+    description="Permanently remove all configured subreddits together with their stored posts, analyses, and ingestion runs.",
+)
+async def delete_all_subreddits(
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, int]:
+    """Delete all subreddit configuration and related analysis data."""
+    result = await session.execute(select(SubredditModel.id))
+    subreddit_ids = list(result.scalars().all())
+    if not subreddit_ids:
+        return {"deleted_subreddits": 0}
+
+    await session.execute(
+        delete(PostAnalysis).where(
+            PostAnalysis.post_id.in_(select(Post.id).where(Post.subreddit_id.in_(subreddit_ids)))
+        )
+    )
+    await session.execute(
+        delete(SubredditAnalysis).where(SubredditAnalysis.subreddit_id.in_(subreddit_ids))
+    )
+    await session.execute(
+        delete(AnalysisRun).where(AnalysisRun.subreddit_id.in_(subreddit_ids))
+    )
+    await session.execute(
+        delete(Post).where(Post.subreddit_id.in_(subreddit_ids))
+    )
+    await session.execute(
+        delete(SubredditModel).where(SubredditModel.id.in_(subreddit_ids))
+    )
+    await session.flush()
+
+    return {"deleted_subreddits": len(subreddit_ids)}
 
 
 @router.get(
